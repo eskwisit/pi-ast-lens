@@ -19,6 +19,9 @@ const OUTPUT_LIMIT = 40000;
 const LINE_LIMIT = 220;
 const SG_TIMEOUT_MS = 60000;
 const LSP_REQUEST_MS = 30000;
+const REFS_BUDGET_MS = 40000; // references across projects: stop and report what was not checked
+const CANDIDATE_FILES_MAX = 300;
+const CANDIDATE_BYTES_MAX = 64 * 1024 * 1024;
 const LSP_START_MS = 45000;
 const LSP_IDLE_MS = 10 * 60 * 1000;
 const DIAG_WAIT_MS = 8000;
@@ -84,6 +87,7 @@ export const SERVERS = [
 		id: (e) => ({ ts: "typescript", mts: "typescript", cts: "typescript", tsx: "typescriptreact", jsx: "javascriptreact" })[e] ?? "javascript",
 		markers: ["tsconfig.json", "jsconfig.json", "package.json"],
 		root: "outermost", // tsserver serves every tsconfig project below it: one server per workspace
+		crossProject: true, // it answers references only from loaded projects
 		candidates: [
 			// TypeScript 7 (the native port) is its own language server; typescript-language-server cannot load it.
 			{ cmd: "tsc", args: ["--lsp", "--stdio"], local: true, when: (root) => tsMajor(root) >= 7, install: "TypeScript 7 in the project" },
@@ -1299,6 +1303,88 @@ function anchorFile(cwd, params) {
 	return found;
 }
 
+const IDENT = /^[\w$]{2,}$/;
+const wordRe = (name, flags = "") => new RegExp(`(?<![\\w$])${name.replace(/\$/g, "\\$")}(?![\\w$])`, flags);
+
+/** Files under root with one of exts that contain name as a whole word (bounded walk). */
+export function candidateFiles(root, name, exts, except) {
+	if (!IDENT.test(String(name))) return [];
+	const re = wordRe(name);
+	const out = [];
+	let seen = 0;
+	let bytes = 0;
+	const walk = (d) => {
+		let entries;
+		try {
+			entries = fs.readdirSync(d, { withFileTypes: true });
+		} catch {
+			return;
+		}
+		for (const e of entries) {
+			if (out.length >= CANDIDATE_FILES_MAX || bytes > CANDIDATE_BYTES_MAX || ++seen > WALK_BUDGET * 4) return;
+			if (e.name.startsWith(".")) continue;
+			const full = path.join(d, e.name);
+			if (e.isDirectory()) {
+				if (!SKIP_DIRS.has(e.name)) walk(full);
+			} else if (e.isFile() && exts.includes(extOf(e.name)) && pathKey(full) !== pathKey(except ?? "")) {
+				try {
+					const t = fs.readFileSync(full, "utf8");
+					bytes += t.length;
+					if (re.test(t)) out.push(full);
+				} catch {}
+			}
+		}
+	};
+	walk(root);
+	return out;
+}
+
+/**
+ * References over every project, for servers that answer only from the projects they have loaded
+ * (tsserver: what it has loaded depends on what was asked before). For each file that has the name
+ * and no known location yet, it finds an occurrence whose definition is the same declaration, asks
+ * references there and merges the answers. Same-named other symbols are skipped. Stops after
+ * REFS_BUDGET_MS and reports how many files it did not check.
+ */
+async function referencesAcrossProjects(client, name, start, base, includeDeclaration, signal) {
+	const deadline = Date.now() + REFS_BUDGET_MS;
+	const key = (l) => `${pathKey(l.file)}:${l.line}:${l.character}`;
+	const ask = (method, uri, position) =>
+		client
+			.request(method, { textDocument: { uri }, position, ...(method.endsWith("references") ? { context: { includeDeclaration } } : {}) }, LSP_REQUEST_MS, signal)
+			.then(normLocations, () => []);
+	const target = (await ask("textDocument/definition", start.uri, start.position))[0];
+	if (!target) return { locations: base, unchecked: 0 };
+	const merged = new Map(base.map((l) => [key(l), l]));
+	const covered = () => new Set([...merged.values()].map((l) => pathKey(l.file)));
+	let done = covered();
+	const files = candidateFiles(client.root, name, client.spec.exts, start.file);
+	let unchecked = 0;
+	for (const [n, f] of files.entries()) {
+		if (signal?.aborted || Date.now() > deadline) {
+			unchecked = files.slice(n).filter((x) => !done.has(pathKey(x))).length;
+			break;
+		}
+		// A file with a known location is covered: references list every use in a file of that program.
+		if (done.has(pathKey(f))) continue;
+		const { uri, text } = client.sync(f);
+		const lines = text.split("\n");
+		let tries = 0;
+		search: for (let i = 0; i < lines.length; i++) {
+			for (const m of lines[i].matchAll(wordRe(name, "g"))) {
+				// A few occurrences per file: a name in a comment or string has no definition.
+				if (tries++ >= 3) break search;
+				const position = { line: i, character: m.index };
+				if (!(await ask("textDocument/definition", uri, position)).some((l) => key(l) === key(target))) continue;
+				for (const l of await ask("textDocument/references", uri, position)) merged.set(key(l), l);
+				done = covered();
+				break search;
+			}
+		}
+	}
+	return { locations: [...merged.values()], unchecked };
+}
+
 async function lsp(params, ctx, signal) {
 	const cwd = real(ctx?.cwd ?? process.cwd());
 	const op = String(params?.operation ?? "").toLowerCase();
@@ -1335,10 +1421,19 @@ async function lsp(params, ctx, signal) {
 		}
 		const method = { definition: "textDocument/definition", references: "textDocument/references", implementation: "textDocument/implementation", type_definition: "textDocument/typeDefinition" }[op];
 		const p = op === "references" ? { ...tdp, context: { includeDeclaration: params?.includeDeclaration !== false } } : tdp;
-		const locs = normLocations(await askWarm(method, p, isEmpty));
+		let locs = normLocations(await askWarm(method, p, isEmpty));
+		let partial = "";
+		if (client.spec.crossProject && op === "references") {
+			const name = params?.symbol || (text.split("\n")[pos.line].slice(pos.character).match(/^[\w$]+/) ?? [""])[0];
+			if (IDENT.test(name)) {
+				const r = await referencesAcrossProjects(client, name, { file, uri, position: pos }, locs, params?.includeDeclaration !== false, signal);
+				locs = r.locations;
+				if (r.unchecked) partial = `\n[search stopped after ${REFS_BUDGET_MS / 1000}s: ${r.unchecked} file${r.unchecked === 1 ? "" : "s"} with the name not checked; narrow with ast_grep or Grep]`;
+			}
+		}
 		if (!locs.length) return { text: `${head} ${op} ${at}\nNo results. Check the position is on the symbol name; for text use Grep.` };
 		const files = new Set(locs.map((l) => l.file)).size;
-		return { text: clip(`${head} ${op} ${at}\n${formatLocations(locs, cwd)}\n[${locs.length} location${locs.length === 1 ? "" : "s"} in ${files} file${files === 1 ? "" : "s"}]`), details: { count: locs.length } };
+		return { text: clip(`${head} ${op} ${at}\n${formatLocations(locs, cwd)}\n[${locs.length} location${locs.length === 1 ? "" : "s"} in ${files} file${files === 1 ? "" : "s"}]${partial}`), details: { count: locs.length, partial: !!partial } };
 	}
 	if (op === "symbols") {
 		const res = await askWarm("textDocument/documentSymbol", { textDocument: { uri } }, isEmpty);
