@@ -83,6 +83,7 @@ export const SERVERS = [
 		name: "typescript", exts: ["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs"],
 		id: (e) => ({ ts: "typescript", mts: "typescript", cts: "typescript", tsx: "typescriptreact", jsx: "javascriptreact" })[e] ?? "javascript",
 		markers: ["tsconfig.json", "jsconfig.json", "package.json"],
+		root: "outermost", // tsserver serves every tsconfig project below it: one server per workspace
 		candidates: [
 			// TypeScript 7 (the native port) is its own language server; typescript-language-server cannot load it.
 			{ cmd: "tsc", args: ["--lsp", "--stdio"], local: true, when: (root) => tsMajor(root) >= 7, install: "TypeScript 7 in the project" },
@@ -562,9 +563,19 @@ export function inferSgLang({ lang, target, globs }) {
 	return { lang: "", why: "" };
 }
 
-/** Root of the project that holds file: nearest dir with a marker, not above cwd when file is inside it. */
-export function findRoot(file, markers, cwd) {
+/**
+ * Root of the project that holds file: the nearest dir with a marker, or with outermost the highest
+ * one up to cwd; never above cwd when file is inside it.
+ */
+export function findRoot(file, markers, cwd, outermost = false) {
 	const inside = cwd && isInside(cwd, file);
+	if (outermost && inside) {
+		let found = null;
+		for (let dir = path.dirname(file); ; dir = path.dirname(dir)) {
+			if (markers.some((m) => !m.startsWith("*") && fs.existsSync(path.join(dir, m)))) found = dir;
+			if (pathKey(dir) === pathKey(cwd) || path.dirname(dir) === dir) return found ?? cwd;
+		}
+	}
 	let dir = path.dirname(file);
 	for (;;) {
 		let names = null;
@@ -1096,7 +1107,7 @@ async function clientFor(file, cwd, cfg) {
 	const ext = extOf(file);
 	const spec = serverSpecFor(ext, cfg.servers);
 	if (!spec) throw new Error(`Code Compass has no language server for .${ext || "(no extension)"} files. Use ast_grep or Grep, or add one to ${CONFIG_FILE} as "servers": { "${ext}": ["command", "--stdio"] }.`);
-	const root = findRoot(file, spec.markers, cwd);
+	const root = findRoot(file, spec.markers, cwd, spec.root === "outermost");
 	let cand = null;
 	let bin = null;
 	for (const c of spec.candidates) {
