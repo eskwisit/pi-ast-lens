@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.2
+
+### Fixes
+
+- **extension:** share one typescript server across all tsconfigs (`b5cfa50`)
+- **extension:** find references in every tsconfig project of a monorepo (`50e144b`)
+
+### Documentation
+
+- **readme:** show what code compass adds, with measured size and speed (`3a8c1b0`)
+
+### Tests
+
+- cover the outermost workspace root and the files that hold a name (`138bf10`)
+- find references across tsconfig projects with one server (`48e4a89`)
+
 ## 0.3.0
 
 ### Features

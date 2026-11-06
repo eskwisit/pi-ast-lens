@@ -7,13 +7,13 @@ less code to find the answer.
 
 ## What it adds to PI-Desktop
 
-| The agent wants to know | Without Code Compass | With Code Compass |
-| --- | --- | --- |
-| Where is `parseConfig` used? | Grep: every line with the text, also comments, strings, JSON files, `parseConfigFile` and other symbols with the same name | `lsp references`: the real uses only, also in other `tsconfig` projects of a monorepo |
-| What is `parseConfig`? | Read the file | `lsp hover`: type, signature and docs. `lsp symbols`: the outline of the file |
-| Where is every `fetch(…)` call? | A Grep regex: misses calls over several lines, hits comments | `ast_grep fetch($URL, $$$)`: every call, by syntax |
-| Make the same change in 40 files | 40 Edit calls | One `ast_grep` rewrite: preview, then `apply: true` |
-| Did my edit break the types? | Run the build with Bash | `lsp diagnostics` on the file |
+| The agent wants to know          | Without Code Compass                                                                                                       | With Code Compass                                                                     |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Where is `parseConfig` used?     | Grep: every line with the text, also comments, strings, JSON files, `parseConfigFile` and other symbols with the same name | `lsp references`: the real uses only, also in other `tsconfig` projects of a monorepo |
+| What is `parseConfig`?           | Read the file                                                                                                              | `lsp hover`: type, signature and docs. `lsp symbols`: the outline of the file         |
+| Where is every `fetch(…)` call?  | A Grep regex: misses calls over several lines, hits comments                                                               | `ast_grep fetch($URL, $$$)`: every call, by syntax                                    |
+| Make the same change in 40 files | 40 Edit calls                                                                                                              | One `ast_grep` rewrite: preview, then `apply: true`                                   |
+| Did my edit break the types?     | Run the build with Bash                                                                                                    | `lsp diagnostics` on the file                                                         |
 
 - **Language from the file extension.** `.ts` starts the TypeScript server and parses as
   TypeScript, `.py` uses Pyright, `.go` gopls, `.rs` rust-analyzer, and so on. For a directory,
@@ -32,14 +32,12 @@ token, 4,000 characters are about 1,000 tokens.
 
 **Tool output, total for the 8 symbols**
 
-| Question | Without Code Compass | With Code Compass | Change |
-| --- | ---: | ---: | ---: |
-| Where is X used? | Grep, plain name: 69,464 | `lsp references`: 32,698 | −53% |
-| | Grep, whole word: 35,539 | `lsp references`: 32,698 | −8% |
-| What is X? | Read the whole file: 44,378 | `lsp symbols`: 14,975 | −66% |
-| | | `lsp hover`: 2,027 | −95% |
-| Every `new X(…)` | Grep: 6,620 (45 hits) | `ast_grep`: 7,367 (45 hits) | +11% |
-| Where is X defined? | Grep `class X`: 755 | `lsp workspace_symbols`: 3,931 | +421% |
+| Question         |        Without Code Compass |        With Code Compass | Change |
+| ---------------- | --------------------------: | -----------------------: | -----: |
+| Where is X used? |    Grep, plain name: 69,464 | `lsp references`: 32,698 |   −53% |
+|                  |    Grep, whole word: 35,539 | `lsp references`: 32,698 |    −8% |
+| What is X?       | Read the whole file: 44,378 |    `lsp symbols`: 14,975 |   −66% |
+|                  |                             |       `lsp hover`: 2,027 |   −95% |
 
 The table counts only the tool output. It does not count the Read calls that an agent often makes
 after a Grep, to tell the real uses from the noise. To find where a symbol is defined, a precise
@@ -53,14 +51,14 @@ import.
 
 **Speed**
 
-| Call | Time |
-| --- | ---: |
-| Grep (ripgrep) | about 60 ms |
-| `ast_grep` over the whole repo | about 110 ms |
-| `lsp hover`, server running | 2 ms |
-| `lsp references`, asked again | 139 ms |
-| `lsp references`, first time for a symbol (the server loads the projects that use it) | 1.2–2.9 s |
-| First `lsp` call, server start included | 3.1 s |
+| Call                                                                                  |         Time |
+| ------------------------------------------------------------------------------------- | -----------: |
+| Grep (ripgrep)                                                                        |  about 60 ms |
+| `ast_grep` over the whole repo                                                        | about 110 ms |
+| `lsp hover`, server running                                                           |         2 ms |
+| `lsp references`, asked again                                                         |       139 ms |
+| `lsp references`, first time for a symbol (the server loads the projects that use it) |    1.2–2.9 s |
+| First `lsp` call, server start included                                               |        3.1 s |
 
 **Costs**
 
@@ -79,10 +77,10 @@ speed and memory.
 
 Code Compass installs nothing. It uses the tools on your machine:
 
-| For | Install |
-| --- | --- |
+| For        | Install                                                                                                                                                          |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ast_grep` | `npm i -g @ast-grep/cli` (any platform), `brew install ast-grep`, `scoop install main/ast-grep`, `cargo install ast-grep --locked` or `pip install ast-grep-cli` |
-| `lsp` | the language server of each language you work in, see below |
+| `lsp`      | the language server of each language you work in, see below                                                                                                      |
 
 When a tool is missing, the result gives the install command for your platform and the agent
 carries on with `ast_grep` and Read.
@@ -93,11 +91,11 @@ Code Compass runs wherever PI-Desktop does: macOS (Apple silicon and Intel), Win
 (x64 and arm64). It needs nothing beyond the tools above, not even Node: a language server
 written in JavaScript runs with PI-Desktop's own runtime when `node` is not installed.
 
-| | Finds tools in |
-| --- | --- |
-| all | `PATH`, the project's `node_modules/.bin`, `~/.cargo/bin`, `~/go/bin`, `~/.dotnet/tools`, `~/.bun/bin`, `~/.deno/bin` |
+|              | Finds tools in                                                                                                                                                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| all          | `PATH`, the project's `node_modules/.bin`, `~/.cargo/bin`, `~/go/bin`, `~/.dotnet/tools`, `~/.bun/bin`, `~/.deno/bin`                                                                                                                  |
 | macOS, Linux | your login shell's `PATH` too (apps started from the Dock or a desktop launcher get a short one), Homebrew and Linuxbrew, Homebrew's keg-only `llvm` (clangd), `~/.local/bin`, `/snap/bin`, nvm, fnm, Volta, asdf and mise shims, pnpm |
-| Windows | `%APPDATA%\npm`, pnpm, Volta, Scoop, Chocolatey, WinGet links, `C:\Program Files\LLVM\bin`, Go, the Python `Scripts` folders |
+| Windows      | `%APPDATA%\npm`, pnpm, Volta, Scoop, Chocolatey, WinGet links, `C:\Program Files\LLVM\bin`, Go, the Python `Scripts` folders                                                                                                           |
 
 On Windows, npm installs commands as `.cmd` shims. Code Compass runs the program behind the shim
 directly, without `cmd.exe`, so an ast-grep pattern with `&`, `|`, `^`, `%` or quotes reaches
@@ -105,21 +103,21 @@ ast-grep unchanged. Other `.bat` launchers go through `cmd.exe` with every argum
 Stopping a server stops all its child processes too (`taskkill /T` on Windows, the process group
 elsewhere).
 
-| Extensions | Language server (first one found) |
-| --- | --- |
-| `.ts .tsx .js .jsx .mjs .cjs .mts .cts` | TypeScript 7 `tsc --lsp` (project), `tsgo`, `typescript-language-server`, `vtsls` |
-| `.py .pyi` | `basedpyright-langserver`, `pyright-langserver`, `pylsp`, `jedi-language-server` |
-| `.go` | `gopls` |
-| `.rs` | `rust-analyzer` |
-| `.c .h .cc .cpp .cxx .hpp .m .mm` | `clangd` |
-| `.swift` | `sourcekit-lsp` |
-| `.java` / `.kt` | `jdtls` / `kotlin-language-server` |
-| `.cs` | `csharp-ls`, `OmniSharp` |
-| `.rb` | `ruby-lsp`, `solargraph` |
-| `.php` | `intelephense`, `phpactor` |
+| Extensions                                             | Language server (first one found)                                                                                                                  |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `.ts .tsx .js .jsx .mjs .cjs .mts .cts`                | TypeScript 7 `tsc --lsp` (project), `tsgo`, `typescript-language-server`, `vtsls`                                                                  |
+| `.py .pyi`                                             | `basedpyright-langserver`, `pyright-langserver`, `pylsp`, `jedi-language-server`                                                                   |
+| `.go`                                                  | `gopls`                                                                                                                                            |
+| `.rs`                                                  | `rust-analyzer`                                                                                                                                    |
+| `.c .h .cc .cpp .cxx .hpp .m .mm`                      | `clangd`                                                                                                                                           |
+| `.swift`                                               | `sourcekit-lsp`                                                                                                                                    |
+| `.java` / `.kt`                                        | `jdtls` / `kotlin-language-server`                                                                                                                 |
+| `.cs`                                                  | `csharp-ls`, `OmniSharp`                                                                                                                           |
+| `.rb`                                                  | `ruby-lsp`, `solargraph`                                                                                                                           |
+| `.php`                                                 | `intelephense`, `phpactor`                                                                                                                         |
 | `.lua` `.sh` `.zig` `.ex` `.dart` `.hs` `.ml` `.scala` | `lua-language-server`, `bash-language-server`, `zls`, `elixir-ls`, `dart language-server`, `haskell-language-server-wrapper`, `ocamllsp`, `metals` |
-| `.vue` `.svelte` `.tf` | `vue-language-server`, `svelteserver`, `terraform-ls` |
-| `.css .scss .less` `.html` `.json` `.yaml` | `vscode-langservers-extracted`, `yaml-language-server` |
+| `.vue` `.svelte` `.tf`                                 | `vue-language-server`, `svelteserver`, `terraform-ls`                                                                                              |
+| `.css .scss .less` `.html` `.json` `.yaml`             | `vscode-langservers-extracted`, `yaml-language-server`                                                                                             |
 
 A server starts on first use and stops after 10 idle minutes or when the session ends. There is
 one server per project root: the nearest `go.mod`, `Cargo.toml`, `pyproject.toml`, … For
@@ -138,26 +136,26 @@ then the result says how many files it did not check.
 
 ### `ast_grep`
 
-| Parameter | |
-| --- | --- |
-| `pattern` | Code with metavariables: `$X` one node, `$$$` any number, `$_` one node without capture |
-| `rule` | Instead of `pattern`: an ast-grep YAML rule, e.g. `kind: function_declaration` with `has:` / `inside:` |
-| `path` | File or directory; default the project |
-| `lang` | Override the inferred language |
-| `globs` | Include/exclude, e.g. `["src/**", "!**/*.test.ts"]` |
-| `rewrite`, `apply` | Replacement with the same metavariables; preview unless `apply: true` |
-| `selector`, `strictness`, `max` | Passed to ast-grep; `max` defaults to 80 matches |
+| Parameter                       |                                                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `pattern`                       | Code with metavariables: `$X` one node, `$$$` any number, `$_` one node without capture                |
+| `rule`                          | Instead of `pattern`: an ast-grep YAML rule, e.g. `kind: function_declaration` with `has:` / `inside:` |
+| `path`                          | File or directory; default the project                                                                 |
+| `lang`                          | Override the inferred language                                                                         |
+| `globs`                         | Include/exclude, e.g. `["src/**", "!**/*.test.ts"]`                                                    |
+| `rewrite`, `apply`              | Replacement with the same metavariables; preview unless `apply: true`                                  |
+| `selector`, `strictness`, `max` | Passed to ast-grep; `max` defaults to 80 matches                                                       |
 
 Output: one line per match, `path:line:col: source line`, then the captured metavariables.
 
 ### `lsp`
 
-| `operation` | Needs |
-| --- | --- |
+| `operation`                                                              | Needs                                                            |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
 | `definition`, `references`, `hover`, `implementation`, `type_definition` | `file`, `line`, and `symbol` (the name on that line) or `column` |
-| `symbols` | `file` |
-| `workspace_symbols` | `query`; optional `file` or `lang` to pick the server |
-| `diagnostics` | `file` (re-read from disk, so it reflects the agent's last edit) |
+| `symbols`                                                                | `file`                                                           |
+| `workspace_symbols`                                                      | `query`; optional `file` or `lang` to pick the server            |
+| `diagnostics`                                                            | `file` (re-read from disk, so it reflects the agent's last edit) |
 
 Lines and columns are 1-based. Output: `path:line:col: source line` per location.
 
@@ -172,11 +170,11 @@ extension:
 
 ```json
 {
-  "mode": "steer",
-  "servers": {
-    "py": ["ruff", "server"],
-    "gleam": ["gleam", "lsp"]
-  }
+	"mode": "steer",
+	"servers": {
+		"py": ["ruff", "server"],
+		"gleam": ["gleam", "lsp"]
+	}
 }
 ```
 
