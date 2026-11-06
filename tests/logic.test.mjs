@@ -7,7 +7,7 @@ import url from "node:url";
 import {
 	extOf, globExts, normalizeLang, serverSpecFor, inferSgLang, dominantLang, findRoot, tsMajor,
 	completeRule, parseFrames, frame, locate, normLocations, hoverText, formatSymbols, formatSgMatches,
-	grepTargetsCode, readConfig, CODE_EXTS, planLaunch, shimTarget, cmdArg, installHint, isInside, pathKey,
+	grepTargetsCode, readConfig, CODE_EXTS, planLaunch, shimTarget, cmdArg, installHint, isInside, pathKey, candidateFiles,
 } from "../extension/code-compass.js";
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "code-compass-"));
@@ -66,6 +66,35 @@ test("findRoot stops at the nearest marker, and at cwd", () => {
 	assert.equal(findRoot(f, ["Cargo.toml"], d), d);
 	write(d, "proj/App.csproj");
 	assert.equal(findRoot(write(d, "proj/a/b.cs"), ["*.csproj"], d), path.join(d, "proj"));
+});
+
+test("findRoot with outermost takes the highest marker up to cwd", () => {
+	const d = tmp();
+	write(d, "package.json", "{}");
+	write(d, "libs/a/tsconfig.json", "{}");
+	const f = write(d, "libs/a/src/x.ts");
+	const markers = ["tsconfig.json", "package.json"];
+	assert.equal(findRoot(f, markers, d), path.join(d, "libs", "a"));
+	assert.equal(findRoot(f, markers, d, true), d);
+	assert.equal(findRoot(f, markers, path.join(d, "libs"), true), path.join(d, "libs", "a"));
+	const outside = tmp();
+	write(outside, "tsconfig.json", "{}");
+	const g = write(outside, "src/y.ts");
+	assert.equal(findRoot(g, markers, d, true), outside, "a file outside cwd keeps the nearest marker");
+});
+
+test("candidateFiles finds whole-word uses in the server's files only", () => {
+	const d = tmp();
+	const a = write(d, "a.ts", "export function thing() {}\n");
+	const b = write(d, "b/use.ts", "thing();\n");
+	write(d, "b/other.ts", "something(); thingy();\n");
+	write(d, "b/readme.md", "thing\n");
+	write(d, "node_modules/x/index.ts", "thing();\n");
+	write(d, ".cache/y.ts", "thing();\n");
+	const found = candidateFiles(d, "thing", ["ts"], a).map((f) => path.relative(d, f));
+	assert.deepEqual(found, [path.relative(d, b)]);
+	assert.deepEqual(candidateFiles(d, "$x", ["ts"], ""), []);
+	assert.deepEqual(candidateFiles(d, "a.b", ["ts"], ""), [], "only identifiers");
 });
 
 test("tsMajor reads the project's TypeScript version", () => {
