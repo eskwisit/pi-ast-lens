@@ -8,9 +8,7 @@
 	"license": "Apache-2.0",
 	"homepage": "https://github.com/eskwisit/pi-code-compass",
 	"repository": "https://github.com/eskwisit/pi-code-compass",
-	"categories": [
-		"coding"
-	],
+	"categories": ["coding"],
 	"main": "main.js",
 	"i18n": {
 		"en": {
@@ -27,21 +25,12 @@
 	"safetyNotes": "agent.extension loads one agent module. It adds two tools and a /code-compass command. The ast_grep tool runs the ast-grep you installed (ast-grep, or sg) in the project folder; it only changes files when the agent passes apply: true with a rewrite. The lsp tool starts the language server installed for the file's extension (for example typescript-language-server, TypeScript 7's tsc --lsp, pyright, gopls, rust-analyzer, clangd), from your PATH, the usual install folders or the project's node_modules/.bin; the server runs in the project folder, reads the project, and is stopped after 10 idle minutes or when the session ends. The plugin downloads and installs nothing and makes no network requests itself. Before each turn it adds a short Code Compass section to the system prompt. After a Grep call that searches code for an identifier, it adds a one-line hint to the result (mode steer); in mode strict it blocks that call instead; mode off disables both. /code-compass mode writes the mode to code-compass/config.json in ~/.config (macOS, Linux) or %APPDATA% (Windows); that file may also map file extensions to your own language server commands. To find tools when PI-Desktop was started from the Dock or a desktop launcher, it reads your login shell's PATH once on macOS and Linux. On Windows it runs npm .cmd shims' programs directly, and other .bat launchers through cmd.exe with escaped arguments. Stopping a server also stops its child processes. agent.prompt.inject makes the Code Compass skill available to the Skill tool.",
 	"changelog": "First release: ast_grep and lsp tools, language from the file extension, Grep steering; macOS, Windows and Linux.",
 	"contributes": {
-		"agentExtensions": [
-			"extension/code-compass.js"
-		],
-		"skills": [
-			"skills/code-compass.md"
-		]
+		"agentExtensions": ["extension/code-compass.js"],
+		"skills": ["skills/code-compass.md"]
 	},
-	"permissions": [
-		"agent.extension",
-		"agent.prompt.inject"
-	],
+	"permissions": ["agent.extension", "agent.prompt.inject"],
 	"engines": {
 		"piDesktop": ">=0.21.0"
 	},
-	"activationEvents": [
-		"onStartup"
-	]
+	"activationEvents": ["onStartup"]
 }
