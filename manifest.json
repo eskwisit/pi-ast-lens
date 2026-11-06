@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "eskwisit.code-compass",
 	"name": "Code Compass",
-	"version": "0.0.0",
+	"version": "0.3.0",
 	"description": "The agent reads code as code: structural search and rewrite with ast-grep, and go-to-definition, references, hover, symbols and diagnostics from the language server picked by the file extension, instead of grepping text.",
 	"author": "eskwisit",
 	"license": "Apache-2.0",
