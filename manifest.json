@@ -1,0 +1,47 @@
+{
+	"schemaVersion": 1,
+	"id": "eskwisit.code-compass",
+	"name": "Code Compass",
+	"version": "0.1.0",
+	"description": "The agent reads code as code: structural search and rewrite with ast-grep, and go-to-definition, references, hover, symbols and diagnostics from the language server picked by the file extension, instead of grepping text.",
+	"author": "eskwisit",
+	"license": "Apache-2.0",
+	"homepage": "https://github.com/eskwisit/pi-code-compass",
+	"repository": "https://github.com/eskwisit/pi-code-compass",
+	"categories": [
+		"coding"
+	],
+	"main": "main.js",
+	"i18n": {
+		"en": {
+			"name": "Code Compass",
+			"description": "The agent reads code as code: structural search and rewrite with ast-grep, and go-to-definition, references, hover, symbols and diagnostics from the language server picked by the file extension, instead of grepping text.",
+			"safetyNotes": "agent.extension loads one agent module. It adds two tools and a /code-compass command. The ast_grep tool runs the ast-grep you installed (ast-grep, or sg) in the project folder; it only changes files when the agent passes apply: true with a rewrite. The lsp tool starts the language server installed for the file's extension (for example typescript-language-server, TypeScript 7's tsc --lsp, pyright, gopls, rust-analyzer, clangd), from your PATH, the usual install folders or the project's node_modules/.bin; the server runs in the project folder, reads the project, and is stopped after 10 idle minutes or when the session ends. The plugin downloads and installs nothing and makes no network requests itself. Before each turn it adds a short Code Compass section to the system prompt. After a Grep call that searches code for an identifier, it adds a one-line hint to the result (mode steer); in mode strict it blocks that call instead; mode off disables both. /code-compass mode writes the mode to code-compass/config.json in ~/.config (macOS, Linux) or %APPDATA% (Windows); that file may also map file extensions to your own language server commands. To find tools when PI-Desktop was started from the Dock or a desktop launcher, it reads your login shell's PATH once on macOS and Linux. On Windows it runs npm .cmd shims' programs directly, and other .bat launchers through cmd.exe with escaped arguments. Stopping a server also stops its child processes. agent.prompt.inject makes the Code Compass skill available to the Skill tool."
+		},
+		"zh-CN": {
+			"name": "代码罗盘",
+			"description": "让智能体把代码当作代码来读：用 ast-grep 做结构化搜索与改写，并按文件扩展名选择语言服务器，提供跳转定义、查找引用、悬停信息、符号与诊断，而不是用 grep 搜索文本。",
+			"safetyNotes": "agent.extension 加载一个智能体模块，添加两个工具和一个 /code-compass 命令。ast_grep 工具在项目文件夹中运行你已安装的 ast-grep（ast-grep 或 sg）；只有当智能体以 apply: true 配合 rewrite 调用时才会修改文件。lsp 工具启动与文件扩展名对应、已安装的语言服务器（例如 typescript-language-server、TypeScript 7 的 tsc --lsp、pyright、gopls、rust-analyzer、clangd），从你的 PATH、常见安装目录或项目的 node_modules/.bin 中查找；服务器在项目文件夹中运行并读取项目，空闲 10 分钟或会话结束时停止，停止时也会结束其子进程。插件不下载、不安装任何内容，自身不发起网络请求。每轮对话前，它会在系统提示中加入一小段 Code Compass 说明。当 Grep 调用在代码中搜索标识符时，它会在结果后附加一行提示（steer 模式）；strict 模式下改为阻止该调用；off 模式两者都关闭。/code-compass mode 会把模式写入 ~/.config（macOS、Linux）或 %APPDATA%（Windows）下的 code-compass/config.json；该文件还可以把文件扩展名映射到你自己的语言服务器命令。为了在从程序坞或桌面启动器打开 PI-Desktop 时也能找到工具，它会在 macOS 和 Linux 上读取一次登录 shell 的 PATH。在 Windows 上，它直接运行 npm .cmd 包装脚本所指向的程序，其他 .bat 启动器则经由 cmd.exe 并对参数转义后运行。agent.prompt.inject 用于为 Skill 工具索引 Code Compass 技能。"
+		}
+	},
+	"safetyNotes": "agent.extension loads one agent module. It adds two tools and a /code-compass command. The ast_grep tool runs the ast-grep you installed (ast-grep, or sg) in the project folder; it only changes files when the agent passes apply: true with a rewrite. The lsp tool starts the language server installed for the file's extension (for example typescript-language-server, TypeScript 7's tsc --lsp, pyright, gopls, rust-analyzer, clangd), from your PATH, the usual install folders or the project's node_modules/.bin; the server runs in the project folder, reads the project, and is stopped after 10 idle minutes or when the session ends. The plugin downloads and installs nothing and makes no network requests itself. Before each turn it adds a short Code Compass section to the system prompt. After a Grep call that searches code for an identifier, it adds a one-line hint to the result (mode steer); in mode strict it blocks that call instead; mode off disables both. /code-compass mode writes the mode to code-compass/config.json in ~/.config (macOS, Linux) or %APPDATA% (Windows); that file may also map file extensions to your own language server commands. To find tools when PI-Desktop was started from the Dock or a desktop launcher, it reads your login shell's PATH once on macOS and Linux. On Windows it runs npm .cmd shims' programs directly, and other .bat launchers through cmd.exe with escaped arguments. Stopping a server also stops its child processes. agent.prompt.inject makes the Code Compass skill available to the Skill tool.",
+	"changelog": "First release: ast_grep and lsp tools, language from the file extension, Grep steering; macOS, Windows and Linux.",
+	"contributes": {
+		"agentExtensions": [
+			"extension/code-compass.js"
+		],
+		"skills": [
+			"skills/code-compass.md"
+		]
+	},
+	"permissions": [
+		"agent.extension",
+		"agent.prompt.inject"
+	],
+	"engines": {
+		"piDesktop": ">=0.21.0"
+	},
+	"activationEvents": [
+		"onStartup"
+	]
+}
