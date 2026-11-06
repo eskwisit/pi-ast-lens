@@ -1,0 +1,4 @@
+dist/
+*.piplug
+.DS_Store
+node_modules/
