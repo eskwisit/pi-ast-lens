@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "eskwisit.code-compass",
 	"name": "Code Compass",
-	"version": "0.3.0",
+	"version": "0.3.2",
 	"description": "The agent reads code as code: structural search and rewrite with ast-grep, and go-to-definition, references, hover, symbols and diagnostics from the language server picked by the file extension, instead of grepping text.",
 	"author": "eskwisit",
 	"license": "Apache-2.0",
@@ -23,7 +23,7 @@
 		}
 	},
 	"safetyNotes": "agent.extension loads one agent module. It adds two tools and a /code-compass command. The ast_grep tool runs the ast-grep you installed (ast-grep, or sg) in the project folder; it only changes files when the agent passes apply: true with a rewrite. The lsp tool starts the language server installed for the file's extension (for example typescript-language-server, TypeScript 7's tsc --lsp, pyright, gopls, rust-analyzer, clangd), from your PATH, the usual install folders or the project's node_modules/.bin; the server runs in the project folder, reads the project, and is stopped after 10 idle minutes or when the session ends. The plugin downloads and installs nothing and makes no network requests itself. Before each turn it adds a short Code Compass section to the system prompt. After a Grep call that searches code for an identifier, it adds a one-line hint to the result (mode steer); in mode strict it blocks that call instead; mode off disables both. /code-compass mode writes the mode to code-compass/config.json in ~/.config (macOS, Linux) or %APPDATA% (Windows); that file may also map file extensions to your own language server commands. To find tools when PI-Desktop was started from the Dock or a desktop launcher, it reads your login shell's PATH once on macOS and Linux. On Windows it runs npm .cmd shims' programs directly, and other .bat launchers through cmd.exe with escaped arguments. Stopping a server also stops its child processes. agent.prompt.inject makes the Code Compass skill available to the Skill tool.",
-	"changelog": "First release: ast_grep and lsp tools, language from the file extension, Grep steering; macOS, Windows and Linux.",
+	"changelog": "TypeScript monorepos: one language server for all tsconfig projects, and references found in every project.",
 	"contributes": {
 		"agentExtensions": ["extension/code-compass.js"],
 		"skills": ["skills/code-compass.md"]
