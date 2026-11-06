@@ -114,3 +114,36 @@ test("lsp with typescript-language-server (npm shim on Windows)", { skip: !hasTl
 	assert.match(await run({ operation: "definition", file: "src/b.ts", line: 3, symbol: "greet" }), /src\/a\.ts:1:17/);
 	assert.match(await run({ operation: "diagnostics", file: "src/b.ts" }), /src\/b\.ts:2:7: error .*2322/);
 });
+
+test("lsp references cross tsconfig projects with one server", { skip: !hasTls && "typescript-language-server not installed", timeout: 120000 }, async () => {
+	await _test.stopAll(); // count only this test's servers
+	// A monorepo: every lib has its own tsconfig.json, joined by a path alias. tsserver answers
+	// references only from the projects it has loaded, so a plain request misses lib b.
+	const mono = fs.mkdtempSync(path.join(os.tmpdir(), "code-compass-mono-"));
+	const put = (rel, text) => {
+		fs.mkdirSync(path.dirname(path.join(mono, rel)), { recursive: true });
+		fs.writeFileSync(path.join(mono, rel), text);
+	};
+	put("package.json", '{ "name": "mono", "private": true }\n');
+	put("tsconfig.json", '{ "files": [] }\n');
+	put("tsconfig.base.json", '{ "compilerOptions": { "strict": true, "baseUrl": ".", "paths": { "@mono/a": ["libs/a/src/index.ts"] } } }\n');
+	for (const lib of ["a", "b", "c"]) put(`libs/${lib}/tsconfig.json`, '{ "extends": "../../tsconfig.base.json", "include": ["src/**/*.ts"] }\n');
+	put("libs/a/src/index.ts", "export function makeThing(n: number): number {\n  return n;\n}\n");
+	put("libs/b/src/use.ts", 'import { makeThing } from "@mono/a";\n\nexport const one = makeThing(1);\nexport const two = makeThing(2); // makeThing in a comment\n');
+	put("libs/c/src/other.ts", 'export const makeThing = "a different symbol with the same name";\nexport const label = "makeThing";\n');
+	const mctx = { cwd: mono };
+	const run = async (p) => (await tools.lsp.execute("id", p, undefined, undefined, mctx)).content[0].text;
+	const t = await run({ operation: "references", file: "libs/a/src/index.ts", line: 1, symbol: "makeThing" });
+	assert.match(t, /libs\/a\/src\/index\.ts:1:17:/);
+	assert.match(t, /libs\/b\/src\/use\.ts:1:10:/);
+	assert.match(t, /libs\/b\/src\/use\.ts:3:20:/);
+	assert.match(t, /libs\/b\/src\/use\.ts:4:20:/);
+	assert.doesNotMatch(t, /libs\/c\//, "a same-named other symbol is not a reference");
+	assert.match(t, /\[4 locations in 2 files\]/);
+	// One server for the whole workspace, not one per tsconfig.
+	await run({ operation: "hover", file: "libs/b/src/use.ts", line: 3, symbol: "makeThing" });
+	await run({ operation: "hover", file: "libs/c/src/other.ts", line: 1, symbol: "makeThing" });
+	let status = "";
+	await command.c.handler("", { cwd: mono, ui: { notify: (m) => (status = m) } });
+	assert.match(status, /running servers: 1\b/);
+});
