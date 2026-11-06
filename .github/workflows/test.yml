@@ -1,0 +1,34 @@
+name: Test
+
+# Runs the tests on every platform PI-Desktop ships for, with the real ast-grep, clangd and
+# typescript-language-server, so Windows shims, paths and process handling are exercised.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Install ast-grep and typescript-language-server
+        run: npm i -g @ast-grep/cli typescript@5 typescript-language-server
+
+      - name: Install clangd (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y clangd
+
+      - name: Test
+        shell: bash
+        run: node --test tests/*.test.mjs
