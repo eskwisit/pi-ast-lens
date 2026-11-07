@@ -4,16 +4,16 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import codeCompass, { which, _test } from "../extension/code-compass.js";
+import astLens, { which, _test } from "../extension/ast-lens.js";
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "code-compass-e2e-"));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ast-lens-e2e-"));
 fs.writeFileSync(path.join(dir, "a.js"), "// add(9, 9) in a comment\nfunction add(a, b) { return a + b }\nconst x = add(1, 2)\nconsole.log(add(x, 3), 'add(0, 0)')\n");
 fs.writeFileSync(path.join(dir, "m.c"), "static int add(int a, int b) { return a + b; }\nint main(void) {\n  int x = add(1, 2);\n  return add(x, nope);\n}\n");
 
 const tools = {};
 const on = {};
 let command;
-codeCompass({ on: (e, h) => (on[e] = h), registerTool: (t) => (tools[t.name] = t), registerCommand: (n, c) => (command = { n, c }) });
+astLens({ on: (e, h) => (on[e] = h), registerTool: (t) => (tools[t.name] = t), registerCommand: (n, c) => (command = { n, c }) });
 const ctx = { cwd: dir };
 const call = async (name, params) => (await tools[name].execute("id", params, undefined, undefined, ctx)).content[0].text;
 const hasSg = !!(which("ast-grep", dir) ?? which("sg", dir));
@@ -23,13 +23,13 @@ after(() => _test.stopAll());
 
 test("registers both tools, the command and the hooks", () => {
 	assert.deepEqual(Object.keys(tools).sort(), ["ast_grep", "lsp"]);
-	assert.equal(command.n, "code-compass");
+	assert.equal(command.n, "ast-lens");
 	for (const e of ["before_agent_start", "tool_call", "tool_result", "session_shutdown"]) assert.equal(typeof on[e], "function", e);
 });
 
 test("before_agent_start adds the section once", async () => {
 	const r = await on.before_agent_start({ systemPrompt: "BASE" }, ctx);
-	assert.match(r.systemPrompt, /^BASE\n\n<!-- code-compass -->/);
+	assert.match(r.systemPrompt, /^BASE\n\n<!-- ast-lens -->/);
 	assert.equal(await on.before_agent_start({ systemPrompt: r.systemPrompt }, ctx), undefined);
 });
 
@@ -38,7 +38,7 @@ test("tool_result hints on a code Grep, at most twice per prompt", async () => {
 	const ev = { toolName: "Grep", input: { pattern: "parseConfig" }, content: [{ type: "text", text: "hits" }] };
 	const r1 = await on.tool_result(ev);
 	assert.equal(r1.content.length, 2);
-	assert.match(r1.content[1].text, /Code Compass/);
+	assert.match(r1.content[1].text, /AST Lens/);
 	assert.equal(await on.tool_result({ ...ev, input: { pattern: "no such file" } }), undefined);
 	assert.ok(await on.tool_result(ev));
 	assert.equal(await on.tool_result(ev), undefined);
@@ -103,7 +103,7 @@ test("ast_grep passes shell metacharacters through unchanged", { skip: !hasSg &&
 
 const hasTls = !!which("typescript-language-server", dir);
 test("lsp with typescript-language-server (npm shim on Windows)", { skip: !hasTls && "typescript-language-server not installed", timeout: 120000 }, async () => {
-	const ts = fs.mkdtempSync(path.join(os.tmpdir(), "code-compass-ts-"));
+	const ts = fs.mkdtempSync(path.join(os.tmpdir(), "ast-lens-ts-"));
 	fs.mkdirSync(path.join(ts, "src"));
 	fs.writeFileSync(path.join(ts, "tsconfig.json"), '{ "compilerOptions": { "strict": true } }\n');
 	fs.writeFileSync(path.join(ts, "src", "a.ts"), "export function greet(name: string): string {\n  return name;\n}\n");
@@ -119,7 +119,7 @@ test("lsp references cross tsconfig projects with one server", { skip: !hasTls &
 	await _test.stopAll(); // count only this test's servers
 	// A monorepo: every lib has its own tsconfig.json, joined by a path alias. tsserver answers
 	// references only from the projects it has loaded, so a plain request misses lib b.
-	const mono = fs.mkdtempSync(path.join(os.tmpdir(), "code-compass-mono-"));
+	const mono = fs.mkdtempSync(path.join(os.tmpdir(), "ast-lens-mono-"));
 	const put = (rel, text) => {
 		fs.mkdirSync(path.dirname(path.join(mono, rel)), { recursive: true });
 		fs.writeFileSync(path.join(mono, rel), text);

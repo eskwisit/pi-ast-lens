@@ -14,7 +14,7 @@ test("ships english and chinese texts and the apache-2.0 license", () => {
 	assert.equal(manifest.i18n.en.name, manifest.name);
 	assert.equal(manifest.i18n.en.description, manifest.description);
 	assert.equal(manifest.i18n.en.safetyNotes, manifest.safetyNotes);
-	for (const name of ["ast_grep", "lsp", "/code-compass", "agent.extension", "agent.prompt.inject"]) {
+	for (const name of ["ast_grep", "lsp", "/ast-lens", "agent.extension", "agent.prompt.inject"]) {
 		for (const lang of ["en", "zh-CN"]) assert.ok(manifest.i18n[lang].safetyNotes.includes(name), `${lang}: ${name}`);
 	}
 	assert.equal(manifest.license, "Apache-2.0");
@@ -26,5 +26,5 @@ test("contributes files that exist, with the permissions they need", () => {
 		assert.ok(fs.existsSync(path.join(ROOT, f)), f);
 	}
 	assert.deepEqual(manifest.permissions, ["agent.extension", "agent.prompt.inject"]);
-	assert.equal(manifest.repository, "https://github.com/eskwisit/pi-code-compass");
+	assert.equal(manifest.repository, "https://github.com/eskwisit/pi-ast-lens");
 });

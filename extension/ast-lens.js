@@ -1,4 +1,4 @@
-// Code Compass: the agent reads code as syntax (ast-grep) and symbols (LSP) instead of grepping text.
+// AST Lens: the agent reads code as syntax (ast-grep) and symbols (LSP) instead of grepping text.
 //
 //   ast_grep  structural search (and optional rewrite) with ast-grep; the language comes from the
 //             file extension, the globs, or the most common code language under the path
@@ -7,14 +7,14 @@
 //             running per project root until it is idle
 //   steering  a system prompt section tells the agent which tool to use; a Grep call that looks for
 //             code gets a one-line hint (mode "steer"), is blocked (mode "strict"), or is left alone
-//             (mode "off"). Set it with /code-compass mode <steer|strict|off>.
+//             (mode "off"). Set it with /ast-lens mode <steer|strict|off>.
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import url from "node:url";
 
-const MARKER = "<!-- code-compass -->";
+const MARKER = "<!-- ast-lens -->";
 const OUTPUT_LIMIT = 40000;
 const LINE_LIMIT = 220;
 const SG_TIMEOUT_MS = 60000;
@@ -43,8 +43,8 @@ const WALK_BUDGET = 6000;
 const HINTS_PER_PROMPT = 2;
 const MODES = ["steer", "strict", "off"];
 const CONFIG_FILE = process.platform === "win32"
-	? path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "code-compass", "config.json")
-	: path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "code-compass", "config.json");
+	? path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "ast-lens", "config.json")
+	: path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "ast-lens", "config.json");
 const SKIP_DIRS = new Set([
 	"node_modules", "dist", "build", "out", "coverage", "target", "vendor", "venv", "__pycache__",
 	"bower_components", "site-packages", "Pods", "DerivedData", ".build", "bin", "obj",
@@ -255,7 +255,7 @@ export function serverSpecFor(ext, overrides = {}) {
 	const o = overrides[ext] ?? overrides[`.${ext}`];
 	if (Array.isArray(o) && o.length && o.every((x) => typeof x === "string")) {
 		const base = spec ?? { name: ext, exts: [ext], id: () => ext, markers: [] };
-		return { ...base, candidates: [{ cmd: o[0], args: o.slice(1), install: "from your Code Compass config" }] };
+		return { ...base, candidates: [{ cmd: o[0], args: o.slice(1), install: "from your AST Lens config" }] };
 	}
 	return spec ?? null;
 }
@@ -352,7 +352,7 @@ let shellPathCache;
 export function loginShellPath() {
 	if (shellPathCache !== undefined) return shellPathCache;
 	shellPathCache = "";
-	if (IS_WIN || env.CODE_COMPASS_NO_SHELL_PATH) return shellPathCache;
+	if (IS_WIN || env.AST_LENS_NO_SHELL_PATH) return shellPathCache;
 	const shell = env.SHELL || (process.platform === "darwin" ? "/bin/zsh" : "/bin/sh");
 	const value = /\bfish$/.test(shell) ? "(string join : $PATH)" : '"$PATH"';
 	try {
@@ -668,7 +668,7 @@ export function completeRule(rule, lang) {
 		if (!lang) return null;
 		y = `language: ${lang}\n${y}`;
 	}
-	if (!/^id\s*:/m.test(y)) y = `id: code-compass-query\n${y}`;
+	if (!/^id\s*:/m.test(y)) y = `id: ast-lens-query\n${y}`;
 	return y;
 }
 
@@ -886,7 +886,7 @@ class LspClient {
 			"initialize",
 			{
 				processId: process.pid,
-				clientInfo: { name: "code-compass" },
+				clientInfo: { name: "ast-lens" },
 				rootUri: root,
 				rootPath: this.root,
 				workspaceFolders: [{ uri: root, name: path.basename(this.root) }],
@@ -1110,7 +1110,7 @@ process.once?.("exit", () => {
 async function clientFor(file, cwd, cfg) {
 	const ext = extOf(file);
 	const spec = serverSpecFor(ext, cfg.servers);
-	if (!spec) throw new Error(`Code Compass has no language server for .${ext || "(no extension)"} files. Use ast_grep or Grep, or add one to ${CONFIG_FILE} as "servers": { "${ext}": ["command", "--stdio"] }.`);
+	if (!spec) throw new Error(`AST Lens has no language server for .${ext || "(no extension)"} files. Use ast_grep or Grep, or add one to ${CONFIG_FILE} as "servers": { "${ext}": ["command", "--stdio"] }.`);
 	const root = findRoot(file, spec.markers, cwd, spec.root === "outermost");
 	let cand = null;
 	let bin = null;
@@ -1491,16 +1491,16 @@ export function grepTargetsCode(input) {
 }
 
 const HINT =
-	"Code Compass: Grep matched text (comments and strings too). For this symbol, call lsp with operation definition or references on a file:line from these results; for a code shape, call ast_grep with a pattern.";
+	"AST Lens: Grep matched text (comments and strings too). For this symbol, call lsp with operation definition or references on a file:line from these results; for a code shape, call ast_grep with a pattern.";
 
 function systemSection(mode, sg) {
 	const sgLine = sg
 		? "- `ast_grep`: find code by its shape. A pattern is code with metavariables: `$X` one node, `$$$ARGS` any number. Example: `fetch($URL, $$$)`, `class $C extends Base { $$$ }`. The language comes from the file extension. Add `rewrite` to preview a structural edit, and `apply: true` to write it."
 		: `- \`ast_grep\` is not usable: ast-grep is not installed (${installHint(SG_INSTALL)}). Tell the user once when a structural search would help.`;
 	return `${MARKER}
-## Code Compass: read code as code
+## AST Lens: read code as code
 
-Code Compass parses code with ast-grep and language servers. Prefer them to Grep for code:
+AST Lens parses code with ast-grep and language servers. Prefer them to Grep for code:
 - \`lsp\`: what a symbol is and where it is used. Operations: definition, references, hover, implementation, type_definition, symbols (outline of one file), workspace_symbols (find a symbol by name), diagnostics. Give \`file\` and \`line\` with \`symbol\` (the name on that line); the language server is chosen by the file extension.
 ${sgLine}
 - Grep: only for plain text — comments, strings, log messages, docs, config — or when the tools above report the language is not supported.
@@ -1511,7 +1511,7 @@ ${sgLine}
 // Extension
 // =========
 
-export default function codeCompass(pi) {
+export default function astLens(pi) {
 	let hints = 0;
 
 	pi.on("before_agent_start", async (event, ctx) => {
@@ -1529,7 +1529,7 @@ export default function codeCompass(pi) {
 		if (!sgBin(ctx?.cwd)) return;
 		return {
 			block: true,
-			reason: `Code Compass (strict): this Grep searches code for "${String(event.input?.pattern).slice(0, 80)}". Use lsp (workspace_symbols, then definition / references) or ast_grep with a pattern. Grep is for plain text: comments, strings, docs, config.`,
+			reason: `AST Lens (strict): this Grep searches code for "${String(event.input?.pattern).slice(0, 80)}". Use lsp (workspace_symbols, then definition / references) or ast_grep with a pattern. Grep is for plain text: comments, strings, docs, config.`,
 		};
 	});
 
@@ -1545,25 +1545,25 @@ export default function codeCompass(pi) {
 		await stopAll();
 	});
 
-	pi.registerCommand?.("code-compass", {
-		description: "Code Compass: status, or `mode steer|strict|off` for how Grep on code is handled",
+	pi.registerCommand?.("ast-lens", {
+		description: "AST Lens: status, or `mode steer|strict|off` for how Grep on code is handled",
 		handler: async (args, ctx) => {
 			const [sub, value] = String(args ?? "").trim().split(/\s+/);
 			const cfg = readConfig();
 			if (sub === "mode") {
 				if (!MODES.includes(value)) {
-					ctx?.ui?.notify?.(`Code Compass mode is ${cfg.mode}. Use: /code-compass mode steer|strict|off`, "info");
+					ctx?.ui?.notify?.(`AST Lens mode is ${cfg.mode}. Use: /ast-lens mode steer|strict|off`, "info");
 					return;
 				}
 				writeConfig({ ...cfg, mode: value });
-				ctx?.ui?.notify?.(`Code Compass mode: ${value}`, "info");
+				ctx?.ui?.notify?.(`AST Lens mode: ${value}`, "info");
 				return;
 			}
 			const cwd = ctx?.cwd ?? process.cwd();
 			const sg = sgBin(cwd);
 			const { ranked } = dominantLang(cwd);
 			const seenServers = new Set();
-			const lines = [`Code Compass · mode ${cfg.mode} · ast-grep: ${sg ?? "not installed"}`];
+			const lines = [`AST Lens · mode ${cfg.mode} · ast-grep: ${sg ?? "not installed"}`];
 			for (const [lang] of ranked.slice(0, 6)) {
 				const ext = Object.entries(SG_LANGS).find(([, l]) => l === lang)?.[0];
 				const spec = serverSpecFor(ext, cfg.servers);

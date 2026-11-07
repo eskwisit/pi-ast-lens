@@ -1,4 +1,4 @@
-// Code Compass entry: the work is in extension/code-compass.js.
+// AST Lens entry: the work is in extension/ast-lens.js.
 
 async function onLoad() {}
 

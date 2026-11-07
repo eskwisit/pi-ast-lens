@@ -8,9 +8,9 @@ import {
 	extOf, globExts, normalizeLang, serverSpecFor, inferSgLang, dominantLang, findRoot, tsMajor,
 	completeRule, parseFrames, frame, locate, normLocations, hoverText, formatSymbols, formatSgMatches,
 	grepTargetsCode, readConfig, CODE_EXTS, planLaunch, shimTarget, cmdArg, installHint, isInside, pathKey, candidateFiles,
-} from "../extension/code-compass.js";
+} from "../extension/ast-lens.js";
 
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "code-compass-"));
+const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "ast-lens-"));
 const write = (dir, rel, text = "") => {
 	const p = path.join(dir, rel);
 	fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -39,7 +39,7 @@ test("serverSpecFor picks by extension and honours overrides", () => {
 	assert.equal(serverSpecFor("tsx").id("tsx"), "typescriptreact");
 	assert.equal(serverSpecFor("xyz"), null);
 	const o = serverSpecFor("py", { py: ["my-ls", "--stdio"] });
-	assert.deepEqual(o.candidates, [{ cmd: "my-ls", args: ["--stdio"], install: "from your Code Compass config" }]);
+	assert.deepEqual(o.candidates, [{ cmd: "my-ls", args: ["--stdio"], install: "from your AST Lens config" }]);
 	assert.equal(serverSpecFor("xyz", { ".xyz": ["x-ls"] }).candidates[0].cmd, "x-ls");
 });
 
@@ -105,7 +105,7 @@ test("tsMajor reads the project's TypeScript version", () => {
 });
 
 test("completeRule wraps a bare body and keeps a full rule", () => {
-	assert.equal(completeRule("kind: call_expression", "go"), "id: code-compass-query\nlanguage: go\nrule:\n  kind: call_expression");
+	assert.equal(completeRule("kind: call_expression", "go"), "id: ast-lens-query\nlanguage: go\nrule:\n  kind: call_expression");
 	const full = "id: r\nlanguage: python\nrule:\n  pattern: print($$$)";
 	assert.equal(completeRule(full, ""), full);
 	assert.equal(completeRule("kind: x", ""), null);

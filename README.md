@@ -1,4 +1,4 @@
-# Code Compass for PI-Desktop
+# AST Lens for PI-Desktop
 
 PI-Desktop's agent finds code with Grep, Glob and Read. These tools see text, not code. Code
 Compass adds two tools that understand code: **`ast_grep`** (syntax trees) and **`lsp`** (the
@@ -7,7 +7,7 @@ less code to find the answer.
 
 ## What it adds to PI-Desktop
 
-| The agent wants to know          | Without Code Compass                                                                                                       | With Code Compass                                                                     |
+| The agent wants to know          | Without AST Lens                                                                                                       | With AST Lens                                                                     |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | Where is `parseConfig` used?     | Grep: every line with the text, also comments, strings, JSON files, `parseConfigFile` and other symbols with the same name | `lsp references`: the real uses only, also in other `tsconfig` projects of a monorepo |
 | What is `parseConfig`?           | Read the file                                                                                                              | `lsp hover`: type, signature and docs. `lsp symbols`: the outline of the file         |
@@ -32,7 +32,7 @@ token, 4,000 characters are about 1,000 tokens.
 
 **Tool output, total for the 8 symbols**
 
-| Question         |        Without Code Compass |        With Code Compass | Change |
+| Question         |        Without AST Lens |        With AST Lens | Change |
 | ---------------- | --------------------------: | -----------------------: | -----: |
 | Where is X used? |    Grep, plain name: 69,464 | `lsp references`: 32,698 |   −53% |
 |                  |    Grep, whole word: 35,539 | `lsp references`: 32,698 |    −8% |
@@ -65,7 +65,7 @@ import.
 - **Context:** the two tool definitions (3,082 characters) and the prompt section (1,062
   characters) are in every request: about 4,100 characters, or about 1,000 tokens.
 - **Memory:** in this repo, one TypeScript server used 2.0 GB of RAM with the projects of the 8
-  symbols loaded. Code Compass 0.3.0 started one server per `tsconfig.json`: 8 servers and 4.9 GB
+  symbols loaded. AST Lens 0.3.0 started one server per `tsconfig.json`: 8 servers and 4.9 GB
   for the same 8 questions, and its `references` missed most uses in other projects.
 - **Time:** the first `lsp` call for a project takes seconds, Grep takes milliseconds. For a
   quick text search, Grep is still the right tool.
@@ -75,7 +75,7 @@ speed and memory.
 
 ## Requirements
 
-Code Compass installs nothing. It uses the tools on your machine:
+AST Lens installs nothing. It uses the tools on your machine:
 
 | For        | Install                                                                                                                                                          |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -87,7 +87,7 @@ carries on with `ast_grep` and Read.
 
 ## Platforms
 
-Code Compass runs wherever PI-Desktop does: macOS (Apple silicon and Intel), Windows, and Linux
+AST Lens runs wherever PI-Desktop does: macOS (Apple silicon and Intel), Windows, and Linux
 (x64 and arm64). It needs nothing beyond the tools above, not even Node: a language server
 written in JavaScript runs with PI-Desktop's own runtime when `node` is not installed.
 
@@ -97,7 +97,7 @@ written in JavaScript runs with PI-Desktop's own runtime when `node` is not inst
 | macOS, Linux | your login shell's `PATH` too (apps started from the Dock or a desktop launcher get a short one), Homebrew and Linuxbrew, Homebrew's keg-only `llvm` (clangd), `~/.local/bin`, `/snap/bin`, nvm, fnm, Volta, asdf and mise shims, pnpm |
 | Windows      | `%APPDATA%\npm`, pnpm, Volta, Scoop, Chocolatey, WinGet links, `C:\Program Files\LLVM\bin`, Go, the Python `Scripts` folders                                                                                                           |
 
-On Windows, npm installs commands as `.cmd` shims. Code Compass runs the program behind the shim
+On Windows, npm installs commands as `.cmd` shims. AST Lens runs the program behind the shim
 directly, without `cmd.exe`, so an ast-grep pattern with `&`, `|`, `^`, `%` or quotes reaches
 ast-grep unchanged. Other `.bat` launchers go through `cmd.exe` with every argument escaped.
 Stopping a server stops all its child processes too (`taskkill /T` on Windows, the process group
@@ -122,11 +122,11 @@ elsewhere).
 A server starts on first use and stops after 10 idle minutes or when the session ends. There is
 one server per project root: the nearest `go.mod`, `Cargo.toml`, `pyproject.toml`, … For
 TypeScript and JavaScript it is one server for the whole workspace, because the TypeScript server
-serves every `tsconfig.json` project below it. Before it answers, Code Compass waits for the
+serves every `tsconfig.json` project below it. Before it answers, AST Lens waits for the
 server's own start-up work (`$/progress`).
 
 The TypeScript server finds references only in the projects it has loaded. So for `references`,
-Code Compass also looks for the files that contain the name. It asks the server again from each
+AST Lens also looks for the files that contain the name. It asks the server again from each
 such file that has no known use yet. When that file uses the same declaration, the server's answer
 also covers the other files of that project. A file that has the name only in a comment or a
 string, or for a different symbol with the same name, adds nothing. This search stops after 40 s;
@@ -161,11 +161,11 @@ Lines and columns are 1-based. Output: `path:line:col: source line` per location
 
 ## Settings
 
-`/code-compass` shows the mode, the ast-grep in use and the language server found for each
-language in the project. `/code-compass mode steer|strict|off` sets the mode.
+`/ast-lens` shows the mode, the ast-grep in use and the language server found for each
+language in the project. `/ast-lens mode steer|strict|off` sets the mode.
 
-Both live in `config.json` under `~/.config/code-compass/` (macOS, Linux; `$XDG_CONFIG_HOME` if
-set) or `%APPDATA%\code-compass\` (Windows). The file can also add or replace servers per
+Both live in `config.json` under `~/.config/ast-lens/` (macOS, Linux; `$XDG_CONFIG_HOME` if
+set) or `%APPDATA%\ast-lens\` (Windows). The file can also add or replace servers per
 extension:
 
 ```json
@@ -180,8 +180,8 @@ extension:
 
 ## Install
 
-Download `eskwisit.code-compass-<version>.piplug` from the
-[releases](https://github.com/eskwisit/pi-code-compass/releases) and open it from the PI-Desktop
+Download `eskwisit.ast-lens-<version>.piplug` from the
+[releases](https://github.com/eskwisit/pi-ast-lens/releases) and open it from the PI-Desktop
 plugins page. Requires PI-Desktop 0.21 or later.
 
 ## Development

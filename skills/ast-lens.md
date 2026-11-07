@@ -1,11 +1,11 @@
 ---
-name: Code Compass
+name: AST Lens
 description: You need to find, trace or change code by structure — a definition, its callers, every call of an API, a code pattern to rewrite — or ast_grep / lsp results need interpreting.
 ---
 
-# Code Compass
+# AST Lens
 
-Code Compass gives you two tools that read code as code. Grep reads text: it also hits comments,
+AST Lens gives you two tools that read code as code. Grep reads text: it also hits comments,
 strings and look-alike names, and misses code split over lines. Use Grep only for plain text.
 
 ## Pick the tool
