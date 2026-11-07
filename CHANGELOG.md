@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.7.0
+
+### Breaking changes
+
+- rename the plugin to ast lens (`25ca35b`)
+- **extension:** ast index, tsgo and rename; drop strict mode (`6acdf45`)
+
+### Features
+
+- **extension:** add a debug tool: stack and values at a breakpoint (`eddd1a3`)
+- **skills:** teach rename, folder outlines and the debug tool (`9a079c5`)
+
+### Documentation
+
+- **manifest:** describe rename, the debug tool and the ast index (`f936729`)
+- **readme:** show what ast lens saves, in tokens and time (`78aa878`)
+
+### Tests
+
+- cover the ast index, rename edits, imports and debug snapshots (`30d8c61`)
+- run rename, the ast index and debug probes end to end (`43090f3`)
+- add a scripted benchmark with ground truth and a gate (`545322f`)
+- compare the benchmark with releases from before the rename (`1a0ed95`)
+
+### CI
+
+- gate on the scripted benchmark on linux (`4409af7`)
+
+### Chores
+
+- rename the plugin to ast lens in the changelog (`17f179e`)
+
 ## 0.3.2
 
 ### Fixes

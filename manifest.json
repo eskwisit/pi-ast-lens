@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"id": "eskwisit.ast-lens",
 	"name": "AST Lens",
-	"version": "0.3.2",
+	"version": "0.7.0",
 	"description": "The agent reads code as code: structural search and rewrite with ast-grep, and go-to-definition, references, rename, hover, symbols and diagnostics from the language server picked by the file extension, and a debugger that shows the stack and values at a breakpoint, instead of grepping text.",
 	"author": "eskwisit",
 	"license": "Apache-2.0",
@@ -23,7 +23,7 @@
 		}
 	},
 	"safetyNotes": "agent.extension loads one agent module. It adds three tools (ast_grep only when ast-grep is installed) and a /ast-lens command. The ast_grep tool runs the ast-grep you installed (ast-grep, or sg) in the project folder; it only changes files when the agent passes apply: true with a rewrite. The lsp tool starts the language server installed for the file's extension (for example typescript-language-server, TypeScript 7's tsc --lsp, pyright, gopls, rust-analyzer, clangd), from your PATH, the usual install folders or the project's node_modules/.bin; the server runs in the project folder, reads the project, and is stopped after 10 idle minutes or when the session ends. To answer definitions and outlines without a language server, it runs ast-grep outline on the project and keeps the result in memory. The debug tool runs the program the agent names, with the arguments it gives: Node.js programs under Node's own inspector on 127.0.0.1, and Python, Go and native programs under the debug adapter installed on your machine (debugpy, dlv, lldb-dap); eval runs expressions inside that program. It stops the program after a probe, at the end of a session, and when the session ends. The plugin downloads and installs nothing and makes no network requests itself. Before each turn it adds a short AST Lens section to the system prompt. After a Grep call that searches code for an identifier, it rewrites the result: grouped by file and, when ast-grep is installed, with hits in comments and strings shown as line numbers (it runs ast-grep on the files of the hits for that); for TypeScript and C/C++ it may add a one-line hint (mode steer). It never blocks Grep. Mode off leaves Grep results and the system prompt alone. After Edit, Write and Bash calls it tells the running language servers which files changed. With maxRssMb set (macOS, Linux), it reads the servers' memory with ps and stops a server above that limit. /ast-lens mode writes the mode to ast-lens/config.json in ~/.config (macOS, Linux) or %APPDATA% (Windows); that file may also set maxRssMb and map file extensions to your own language server commands. To find tools when PI-Desktop was started from the Dock or a desktop launcher, it reads your login shell's PATH once on macOS and Linux. On Windows it runs npm .cmd shims' programs directly, and other .bat launchers through cmd.exe with escaped arguments. Stopping a server also stops its child processes. agent.prompt.inject makes the AST Lens skill available to the Skill tool.",
-	"changelog": "TypeScript monorepos: one language server for all tsconfig projects, and references found in every project.",
+	"changelog": "Renamed to AST Lens. Definitions, outlines and symbol bodies in milliseconds, rename across projects, and a debugger that shows values at a breakpoint.",
 	"contributes": {
 		"agentExtensions": ["extension/ast-lens.js"],
 		"skills": ["skills/ast-lens.md"]
