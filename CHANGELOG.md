@@ -9,7 +9,7 @@
 
 ### Documentation
 
-- **readme:** show what code compass adds, with measured size and speed (`3a8c1b0`)
+- **readme:** show what AST Lens adds, with measured size and speed (`3a8c1b0`)
 
 ### Tests
 
@@ -21,7 +21,7 @@
 ### Features
 
 - **extension:** read code with ast-grep and language servers, not grep (`87a058b`)
-- **skills:** add the code compass skill for patterns, rules and lsp traces (`52e77d1`)
+- **skills:** add the AST Lens skill for patterns, rules and lsp traces (`52e77d1`)
 - **manifest:** declare the agent extension, skill and permissions (`f4f3b67`)
 
 ### Documentation
