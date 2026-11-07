@@ -29,16 +29,26 @@ after(() => _test.stopAll());
 test("registers the tools it can run, the command and the hooks", () => {
 	assert.deepEqual(Object.keys(tools).sort(), hasSg ? ["ast_grep", "debug", "lsp"] : ["debug", "lsp"]);
 	assert.equal(command.n, "ast-lens");
-	for (const e of ["before_agent_start", "tool_result", "session_shutdown"]) assert.equal(typeof on[e], "function", e);
+	for (const e of ["before_agent_start", "before_provider_request", "tool_result", "session_shutdown"]) assert.equal(typeof on[e], "function", e);
 	assert.equal(on.tool_call, undefined, "strict mode is gone: Grep is never blocked");
 });
 
-test("before_agent_start adds the same short section once", async () => {
-	const r = await on.before_agent_start({ systemPrompt: "BASE" }, ctx);
-	assert.match(r.systemPrompt, /^BASE\n\n<!-- ast-lens -->/);
-	assert.ok(r.systemPrompt.length - "BASE\n\n".length <= 400, "the section is at most 400 characters");
-	assert.equal(await on.before_agent_start({ systemPrompt: r.systemPrompt }, ctx), undefined);
-	assert.equal((await on.before_agent_start({ systemPrompt: "BASE" }, ctx)).systemPrompt, r.systemPrompt, "stable across turns");
+test("before_agent_start never changes the system prompt; the request gets the same short section once", async () => {
+	assert.equal(await on.before_agent_start({ systemPrompt: "BASE" }, ctx), undefined);
+	const req = () => ({ system: [{ type: "text", text: "CLAUDE" }, { type: "text", text: "BASE" }], messages: [{ role: "system", content: "UPDATE" }] });
+	const payload = req();
+	const r = await on.before_provider_request({ payload }, ctx);
+	assert.equal(r, payload, "same object, changed in place");
+	assert.equal(r.system[0].text, "CLAUDE");
+	assert.match(r.system[1].text, /^BASE\n\n<!-- ast-lens -->/);
+	assert.ok(r.system[1].text.length - "BASE\n\n".length <= 400, "the section is at most 400 characters");
+	assert.equal(r.messages[0].content, "UPDATE", "mid-conversation system messages stay as they are");
+	await on.before_provider_request({ payload }, ctx);
+	assert.equal(payload.system[1].text, r.system[1].text, "a retry does not add it twice");
+	assert.equal((await on.before_provider_request({ payload: req() }, ctx)).system[1].text, r.system[1].text, "stable across turns");
+	const chat = { messages: [{ role: "developer", content: "BASE" }, { role: "user", content: "hi" }] };
+	assert.match((await on.before_provider_request({ payload: chat }, ctx)).messages[0].content, /^BASE\n\n<!-- ast-lens -->/);
+	assert.equal(await on.before_provider_request({ payload: { messages: [{ role: "user", content: "hi" }] } }, ctx), undefined);
 });
 
 test("tool_result groups a code Grep and hints at most twice per prompt", async () => {
