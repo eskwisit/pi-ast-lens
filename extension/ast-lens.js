@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import url from "node:url";
 import { debugTool, stopDebug, DEBUG_OPS } from "./debug.js";
+import { addToSystemPrompt } from "./system-prompt.js";
 
 const MARKER = "<!-- ast-lens -->";
 const OUTPUT_LIMIT = 40000;
@@ -2860,9 +2861,15 @@ export default function astLens(pi) {
 			// does not pay the server start. Never blocks the turn; a failure is silent.
 			setTimeout(() => prewarm(ctx?.cwd ?? process.cwd(), cfg).catch(() => {}), 0).unref?.();
 		}
-		const prompt = event?.systemPrompt;
-		if (typeof prompt !== "string" || prompt.includes(MARKER) || cfg.mode === "off") return;
-		return { systemPrompt: `${prompt}\n\n${section}` };
+		// No systemPrompt here: PI-Desktop stores a changed prompt as a new system message, and
+		// Anthropic models then get the whole prompt twice. before_provider_request adds the section.
+	});
+
+	pi.on("before_provider_request", async (event) => {
+		if (readConfig().mode === "off") return;
+		const payload = event?.payload;
+		if (!addToSystemPrompt(payload, section, "end")) return;
+		return payload;
 	});
 
 	pi.on("tool_result", async (event, ctx) => {
