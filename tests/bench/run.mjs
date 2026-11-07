@@ -45,7 +45,9 @@ async function loadBuild(label, file) {
 
 const builds = [await loadBuild("current", path.join(ROOT, "extension", "ast-lens.js"))];
 if (REF) {
-	const src = spawnSync("git", ["show", `${REF}:extension/ast-lens.js`], { cwd: ROOT, encoding: "utf8" });
+	// Before 0.4 the plugin was named Code Compass, with its extension in extension/code-compass.js.
+	let src = spawnSync("git", ["show", `${REF}:extension/ast-lens.js`], { cwd: ROOT, encoding: "utf8" });
+	if (src.status !== 0) src = spawnSync("git", ["show", `${REF}:extension/code-compass.js`], { cwd: ROOT, encoding: "utf8" });
 	if (src.status !== 0) throw new Error(`git show ${REF}: ${src.stderr}`);
 	const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "ast-lens-ref-")), "ast-lens.mjs");
 	fs.writeFileSync(f, src.stdout);
