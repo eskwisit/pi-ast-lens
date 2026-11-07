@@ -32,3 +32,10 @@ jobs:
       - name: Test
         shell: bash
         run: node --test tests/*.test.mjs
+
+      - name: Benchmark gate
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          git fetch --depth=1 origin tag v0.3.2 || true
+          node tests/bench/run.mjs --gate $(git rev-parse -q --verify v0.3.2 >/dev/null && echo --ref v0.3.2)
