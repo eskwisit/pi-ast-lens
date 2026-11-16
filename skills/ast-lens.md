@@ -45,8 +45,8 @@ common code language under it; the result header says which. Pass `lang` to choo
   call again with `continue: true`.
 - rename changes every verified use, in every project of the workspace, and lists the text matches
   it did not change (comments, strings). With a name alone and two declarations of that name, it
-  asks for `file` and `line` and writes nothing. Do not rename with sed or Grep: a regex also hits
-  look-alike names, and `\b` does not work in macOS sed.
+  asks for `file` and `line` and writes nothing. The plugin blocks sed/perl identifier renames; use
+  lsp rename.
 - Results show at most `limit` hits (default 50) and say how many more there are. `output:
   "files"` or `"count"` gives less.
 - If the result says no server is installed, tell the user the install command it gives, and
@@ -105,4 +105,4 @@ Useful rule keys: `kind`, `pattern`, `regex`, `inside`, `has`, `not`, `all`, `an
 
 1. Call `ast_grep` with `pattern` and `rewrite`. It shows each change as `-` / `+` lines.
 2. Check the preview. Narrow `path` or `globs` if it touches code it should not.
-3. Call again with `apply: true`, then run `lsp` diagnostics on the changed files.
+3. Call again with `apply: true`; the result ends with the diagnostics of the changed files.
