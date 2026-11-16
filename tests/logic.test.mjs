@@ -458,7 +458,7 @@ test("groupRssMb adds the memory of a process group", () => {
 
 test("the tool definitions and the prompt section stay small", () => {
 	const code = JSON.stringify({ ast_grep: TOOLS.ast_grep, lsp: TOOLS.lsp }).length;
-	assert.ok(code <= 2200, `ast_grep and lsp definitions: ${code} characters`);
+	assert.ok(code <= 2350, `ast_grep and lsp definitions: ${code} characters`); // 0.7: +~140 for the diagnostics after an ast_grep apply
 	const debug = JSON.stringify(TOOLS.debug).length;
 	assert.ok(debug <= 800, `debug definition: ${debug} characters`);
 	assert.ok(_test.systemSection(true).length <= 400, "prompt section");

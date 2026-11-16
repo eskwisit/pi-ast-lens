@@ -26,11 +26,11 @@ const nodeMajor = Number(process.versions.node.split(".")[0]);
 
 after(() => _test.stopAll());
 
-test("registers the tools it can run, the command and the hooks", () => {
+test("registers the tools it can run, the command and the hooks", async () => {
 	assert.deepEqual(Object.keys(tools).sort(), hasSg ? ["ast_grep", "debug", "lsp"] : ["debug", "lsp"]);
 	assert.equal(command.n, "ast-lens");
-	for (const e of ["before_agent_start", "before_provider_request", "tool_result", "session_shutdown"]) assert.equal(typeof on[e], "function", e);
-	assert.equal(on.tool_call, undefined, "strict mode is gone: Grep is never blocked");
+	for (const e of ["before_agent_start", "before_provider_request", "tool_call", "tool_result", "session_shutdown"]) assert.equal(typeof on[e], "function", e);
+	assert.equal(await on.tool_call({ toolName: "Grep", input: { pattern: "add" } }, ctx), undefined, "strict mode is gone: Grep is never blocked");
 });
 
 test("before_agent_start never changes the system prompt; the request gets the same short section once", async () => {
@@ -127,8 +127,15 @@ test("ast_grep keeps 45 `new X(…)` matches under 6,000 characters", { skip: !h
 test("ast_grep apply writes the rewrite", { skip: !hasSg && "ast-grep not installed" }, async () => {
 	const f = path.join(dir, "w.js");
 	fs.writeFileSync(f, "old(1)\nold(2)\n");
-	await call("ast_grep", { pattern: "old($A)", rewrite: "neu($A)", path: "w.js", apply: true });
+	const t = await call("ast_grep", { pattern: "old($A)", rewrite: "neu($A)", path: "w.js", apply: true });
 	assert.equal(fs.readFileSync(f, "utf8"), "neu(1)\nneu(2)\n");
+	assert.match(t, /^\[ast-grep · javascript[^\n]*\]\n/);
+	assert.match(t, /\n\nDiagnostics after apply:(?: none| unavailable)?/, "the result ends with the diagnostics section");
+	assert.match(t, /Diagnostics after apply:(?: none|\n(?:w\.js:|Diagnostics unavailable:))/, "per file, or none, or the reason");
+	fs.writeFileSync(f, "old(1)\n");
+	const quiet = await call("ast_grep", { pattern: "old($A)", rewrite: "neu($A)", path: "w.js", apply: true, diagnostics: false });
+	assert.doesNotMatch(quiet, /Diagnostics/, "diagnostics: false skips the section");
+	assert.equal(fs.readFileSync(f, "utf8"), "neu(1)\n");
 });
 
 test("lsp with clangd: definition, references, hover, symbols, diagnostics", { skip: !hasClangd && "clangd not installed", timeout: 90000 }, async () => {
