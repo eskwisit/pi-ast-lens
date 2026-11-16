@@ -2782,6 +2782,59 @@ export function grepTargetsCode(input) {
 	return identifier || shape || call;
 }
 
+// Shell guard
+// ===========
+
+const SHELL_SEPARATORS = new Set(["|", "||", "&&", ";", "&"]);
+const SHELL_PREFIXES = new Set(["sudo", "xargs", "time", "env", "nice", "command", "exec"]);
+const PLAIN_IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+/** Shell words, quotes kept; a trailing `;` becomes its own word. */
+function shellWords(command) {
+	const out = [];
+	for (const m of String(command).matchAll(/"(?:[^"\\]|\\.)*"|'[^']*'|[^\s;]+|;/g)) out.push(m[0]);
+	return out;
+}
+
+const unquote = (w) => (/^(["']).*\1$/s.test(w) ? w.slice(1, -1) : w);
+
+/**
+ * An identifier rename done with `sed -i` or `perl -pi` on code files: { from, to }, or null.
+ * Only plain identifiers of 3+ characters on both sides (optionally wrapped in \b) count, and only
+ * when a word of the command names a code file or a glob / find pattern over code files.
+ */
+export function sedRename(command) {
+	const words = shellWords(command);
+	const codeFile = words.some((w) => {
+		const u = unquote(w).replace(/^--?[a-z-]+=/, "");
+		const ext = globExts([u])[0] ?? extOf(u);
+		return !!ext && CODE_EXTS.has(ext) && !TEXT_EXTS.has(ext);
+	});
+	if (!codeFile) return null;
+	const segments = [[]];
+	for (const w of words) {
+		if (SHELL_SEPARATORS.has(w)) segments.push([]);
+		else segments.at(-1).push(w);
+	}
+	for (const seg of segments) {
+		let i = 0;
+		while (i < seg.length && (SHELL_PREFIXES.has(seg[i]) || /^[A-Za-z_][A-Za-z0-9_]*=/.test(seg[i]) || /^-/.test(seg[i]))) i++;
+		const cmd = (seg[i] ?? "").split(/[\\/]/).pop();
+		if (cmd !== "sed" && cmd !== "gsed" && cmd !== "perl") continue;
+		const flags = seg.slice(i + 1).filter((w) => /^-/.test(w));
+		const inPlace = flags.some((w) => /^--in-place(=|$)/.test(w) || (/^-[A-Za-z]*i/.test(w) && !/^--/.test(w) && !/^-e$/.test(w)));
+		if (!inPlace) continue;
+		for (const w of seg.slice(i + 1)) {
+			const m = unquote(w).match(/(?:^|;)s([\/|#@,:!%~])((?:\\\1|(?!\1).)+)\1((?:\\\1|(?!\1).)*)\1[gIimpe0-9]*(?:;|$)/);
+			if (!m) continue;
+			const from = m[2].replace(/^\\b|\\b$/g, "");
+			const to = m[3].replace(/^\\b|\\b$/g, "");
+			if (PLAIN_IDENT.test(from) && PLAIN_IDENT.test(to) && from.length >= 3 && to.length >= 3 && from !== to) return { from, to };
+		}
+	}
+	return null;
+}
+
 /** Extensions of the languages with a verified server: the only ones Grep results steer to lsp. */
 const VERIFIED_EXTS = new Set(SERVERS.filter((s) => VERIFIED.has(s.name)).flatMap((s) => s.exts));
 const VERIFIED_PATH = new RegExp(`\\.(${[...VERIFIED_EXTS].join("|")})\\b`);
@@ -2937,6 +2990,17 @@ export default function astLens(pi) {
 		const payload = event?.payload;
 		if (!addToSystemPrompt(payload, section, "end")) return;
 		return payload;
+	});
+
+	pi.on("tool_call", async (event) => {
+		// A sed/perl identifier rename on code: blocked, because it also hits look-alike names, comments and strings.
+		if (String(event?.toolName ?? "").toLowerCase() !== "bash" || readConfig().mode === "off") return;
+		const r = sedRename(event?.input?.command ?? "");
+		if (!r) return;
+		return {
+			block: true,
+			reason: `AST Lens: a text rename also hits look-alike names, comments and strings. Use lsp rename (symbol ${r.from}, new_name ${r.to}; preview first, then apply: true).`,
+		};
 	});
 
 	pi.on("tool_result", async (event, ctx) => {
