@@ -922,11 +922,21 @@ async function astGrep(params, ctx, signal) {
 
 	if (apply) {
 		if (!rule.trim() && rewrite === undefined) throw new Error("apply needs `rewrite` (or a rule with `fix:`).");
+		// --update-all reports only a count, so list the files first (for the diagnostics afterwards).
+		const wantDiag = params?.diagnostics !== false;
+		const pre = wantDiag ? await runCollect(bin, [...args, "--json=stream", ...targets], cwd, signal, SG_COLLECT_MAX).catch(() => null) : null;
+		if (pre?.aborted) throw new Error("Stopped.");
+		const touched = pre && !pre.more && !pre.timedOut ? [...new Set(pre.items.map((m) => real(path.resolve(cwd, m.file ?? ""))))] : null;
 		const r = await runText(bin, [...args, "--update-all", ...targets], cwd, signal);
 		if (r.code !== 0 && r.code !== 1) throw new Error(`ast-grep failed (exit ${r.code}):\n${clip(r.out, 4000)}`);
 		indexChanged();
 		eachClient((c) => c.refresh());
-		return { text: `${head}\n${clip(r.out || "No matches; nothing changed.")}`, details: { lang, applied: true } };
+		let text = `${head}\n${clip(r.out || "No matches; nothing changed.")}`;
+		if (wantDiag && (touched === null || touched.length)) {
+			const diag = await diagnosticsAfterApply(touched, ctx, signal).catch((e) => `Diagnostics unavailable: ${String(e?.message ?? e).split("\n")[0]}`);
+			text += `\n\nDiagnostics after apply:${diag === "none" ? " none" : `\n${diag}`}`;
+		}
+		return { text, details: { lang, applied: true, files: touched?.length } };
 	}
 
 	const r = await runCollect(bin, [...args, "--json=stream", ...targets], cwd, signal, SG_COLLECT_MAX);
@@ -944,6 +954,62 @@ async function astGrep(params, ctx, signal) {
 		: `\n[${plural(r.items.length, "match", "matches")} in ${plural(files, "file")}]`;
 	const note = rewrite !== undefined ? "\n[preview only: call again with apply: true to write the rewrite]" : "";
 	return { text: clip(`${head}\n${body}${foot}${note}`), details: { lang, matches: r.items.length, more: r.more } };
+}
+
+const APPLY_DIAG_MS = 5000; // per file, after an ast_grep apply: a slow or missing server gets one line, not a wait
+const APPLY_DIAG_FILES = 10;
+const APPLY_DIAG_LINES = 5;
+
+/**
+ * Diagnostics of the files an ast_grep apply changed, as lines for the tool result: per file the
+ * counts and the first error lines (lsp diagnostics format), or "none". A missing server or a
+ * server that does not answer within APPLY_DIAG_MS gets one line. Never throws on a server problem.
+ */
+async function diagnosticsAfterApply(files, ctx, signal) {
+	if (!files) return "Diagnostics unavailable: ast-grep did not list the changed files.";
+	const cwd = real(ctx?.cwd ?? process.cwd());
+	const shown = files.slice(0, APPLY_DIAG_FILES);
+	const one = async (file) => {
+		const ac = new AbortController();
+		const onAbort = () => ac.abort();
+		signal?.addEventListener("abort", onAbort, { once: true });
+		let timer;
+		const late = new Promise((resolve) => (timer = setTimeout(() => (ac.abort(), resolve({ late: true })), APPLY_DIAG_MS)));
+		try {
+			const p = lsp({ operation: "diagnostics", file }, { ...ctx, cwd }, ac.signal);
+			p.catch(() => {});
+			const r = await Promise.race([p, late]);
+			if (r?.late || !Array.isArray(r?.details?.items)) return { file, note: `no result within ${APPLY_DIAG_MS / 1000}s (the server may still be indexing); ask lsp diagnostics` };
+			return { file, items: r.details.items };
+		} catch (e) {
+			if (ac.signal.aborted) return { file, note: `no result within ${APPLY_DIAG_MS / 1000}s; ask lsp diagnostics` };
+			return { file, note: String(e?.message ?? e).split("\n")[0].slice(0, 200) };
+		} finally {
+			clearTimeout(timer);
+			signal?.removeEventListener("abort", onAbort);
+		}
+	};
+	const results = await Promise.all(shown.map(one));
+	if (results.every((r) => r.items && !r.items.length) && files.length <= APPLY_DIAG_FILES) return "none";
+	const lines = [];
+	const byNote = new Map(); // the same note (e.g. no server for .py) once, for all its files
+	for (const r of results) {
+		const name = rel(cwd, r.file);
+		if (r.note) {
+			byNote.set(r.note, [...(byNote.get(r.note) ?? []), name]);
+			continue;
+		}
+		const errors = r.items.filter((d) => d.severity === 1);
+		const warnings = r.items.filter((d) => d.severity === 2);
+		lines.push(r.items.length ? `${name}: ${plural(errors.length, "error")}, ${plural(warnings.length, "warning")}` : `${name}: no problems`);
+		if (errors.length) {
+			lines.push(formatDiagnostics(errors.slice(0, APPLY_DIAG_LINES), r.file, cwd));
+			if (errors.length > APPLY_DIAG_LINES) lines.push(`[${errors.length - APPLY_DIAG_LINES} more errors; ask lsp diagnostics]`);
+		}
+	}
+	for (const [note, names] of byNote) lines.push(`${names.join(", ")}: ${note}`);
+	if (files.length > shown.length) lines.push(`[${files.length - shown.length} more changed files not checked]`);
+	return lines.join("\n");
 }
 
 // Grep results
@@ -2686,7 +2752,7 @@ async function lsp(params, ctx, signal) {
 	}
 	if (items === null) items = await client.waitDiagnostics(uri, since, changed, signal);
 	if (items === null) return { text: `${head} diagnostics ${rel(cwd, file)}\nThe server reported nothing within ${DIAG_WAIT_MS / 1000}s.` };
-	return { text: clip(`${head} diagnostics ${rel(cwd, file)}\n${items.length ? formatDiagnostics(items, file, cwd) : "No problems."}`), details: { count: items.length } };
+	return { text: clip(`${head} diagnostics ${rel(cwd, file)}\n${items.length ? formatDiagnostics(items, file, cwd) : "No problems."}`), details: { count: items.length, items } };
 }
 
 // Grep steering
@@ -2789,8 +2855,9 @@ export const TOOLS = {
 				path: { type: "string" },
 				lang: { type: "string" },
 				globs: { type: "array", items: { type: "string" }, description: "e.g. [\"src/**\",\"!**/*.test.ts\"]" },
-				rewrite: { type: "string", description: "Preview unless apply" },
+				rewrite: { type: "string", description: "Preview unless apply; apply ends with diagnostics of the changed files" },
 				apply: { type: "boolean" },
+				diagnostics: { type: "boolean", description: "false: skip after apply" },
 				limit: { type: "number", description: "Default 50" },
 				output: { type: "string", enum: ["lines", "files", "count"] },
 			},
