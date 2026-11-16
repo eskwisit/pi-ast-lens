@@ -34,7 +34,7 @@ Answers from an AST index of the project, and from the language server for type 
 | --- | --- |
 | `definition` | Where a symbol is declared. A name alone is enough. |
 | `references` | Every real use, the function around each use, and what it could not check. |
-| `rename` | Every verified use, in every project. Preview first; `apply: true` writes. |
+| `rename` | Every verified use, in every project. Preview first; `apply: true` writes. A `sed -i` or `perl -pi` rename of an identifier in code files is blocked, with a pointer to `lsp` rename. |
 | `hover` | Type, signature, docs and members. |
 | `symbols` | The outline of a file, the exports of a folder, or one symbol's code (`body: true`). |
 | `workspace_symbols` | Symbols that match a name. |
@@ -43,7 +43,7 @@ Answers from an AST index of the project, and from the language server for type 
 
 ### `ast_grep`
 
-Finds code by its shape: `fetch($URL, $$$)` finds every call of `fetch`. It never matches comments or strings. Add `rewrite` to change all matches; `apply: true` writes the change.
+Finds code by its shape: `fetch($URL, $$$)` finds every call of `fetch`. It never matches comments or strings. Add `rewrite` to change all matches; `apply: true` writes the change, and the result ends with the language server's diagnostics of the changed files (`diagnostics: false` skips that).
 
 ### `debug`
 
